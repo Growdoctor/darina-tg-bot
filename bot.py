@@ -40,7 +40,7 @@ MEMORY_FILE = "memory.json"
 if os.path.exists(MEMORY_FILE):
     try:
         with open(MEMORY_FILE, "r", encoding="utf-8") as f:
-            chat_history = json.loads(f)
+            chat_history = json.load(f)
     except:
         chat_history = {}
 else:
@@ -57,13 +57,13 @@ def ask_ai(chat_id, user_text):
     str_id = str(chat_id)
     history_text = "\n".join(chat_history.get(str_id, []))
     
-    # Формируем запрос в правильном формате для Google API с Bearer токеном
+    # Формируем тело запроса строго по спецификации Gemini API
     payload = {
         "contents": [
             {
                 "role": "user",
                 "parts": [
-                    {"text": f"{SYSTEM_PROMPT}\n\nИстория переписки:\n{history_text}\n\nСообщение от пользователя: {user_text}\nОтветь как Дарина:"}
+                    {"text": f"{SYSTEM_PROMPT}\n\nИстория переписки:\n{history_text}\n\nСообщение: {user_text}\nОтвет Дарины:"}
                 ]
             }
         ]
@@ -71,8 +71,8 @@ def ask_ai(chat_id, user_text):
     
     data_bytes = json.dumps(payload).encode("utf-8")
     
-    # Используем стабильную модель с OAuth / AQ авторизацией
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+    # Запрос с Bearer-авторизацией для AQ-токенов
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {GEMINI_API_KEY}"
@@ -85,8 +85,7 @@ def ask_ai(chat_id, user_text):
         return res_json["candidates"][0]["content"]["parts"][0]["text"].strip()
     except Exception as e:
         print(f"Ошибка Gemini API: {e}")
-        # Если API не ответит, вернем живую заглушку вместо ошибки
-        return "Блин, что-то мысли разбежались, повтори еще разок! 😅"
+        return None
 
 def send_message(chat_id, text, reply_to=None):
     params = {"chat_id": chat_id, "text": text}
