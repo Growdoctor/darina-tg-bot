@@ -3,19 +3,10 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 import requests
 
-# Токен Телеграм-бота (вшит безопасно)
+# Токен Телеграм-бота
 BOT_TOKEN = "8844271855:AAHw_Zf9dnlu8RM0R51HuqkcOKzXbgzLYJE"
 
-# Ключ Groq считывается из защищенного окружения Render
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-
 BOT_NAMES = ["дарина", "дарин", "даринка", "дариша", "даша", "бот", "малая"]
-RANDOM_CHANCE = 0.30
-
-SYSTEM_PROMPT = (
-    "Ты — Дарина. Живая, остроумная, немного дерзкая, но своя в доску девушка в общем чате друзей. "
-    "Отвечай коротко (1-2 предложения), живо, с юмором, сленгом и эмоциями. Никогда не будь скучным роботом."
-)
 
 BASE_URL = f"https://api.telegram.org/bot{BOT_TOKEN}/"
 
@@ -54,46 +45,49 @@ def save_memory():
     except Exception as e:
         print("Ошибка сохранения памяти:", e, flush=True)
 
-def ask_ai(chat_id, user_text):
-    str_id = str(chat_id)
-    history_list = chat_history.get(str_id, [])
+def generate_smart_reply(text, user_name):
+    t = text.lower()
     
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-    for item in history_list:
-        if item.startswith("Дарина:"):
-            messages.append({"role": "assistant", "content": item.replace("Дарина: ", "")})
-        else:
-            messages.append({"role": "user", "content": item})
-            
-    messages.append({"role": "user", "content": user_text})
+    if any(w in t for w in ["привет", "ку", "здарова", "хай", "добрый", "re", "ау"]):
+        return random.choice([
+            f"О, здарова, {user_name}! 😉 Какими судьбами тут?",
+            "Ку-ку! Чего новенького расскажешь, бро?",
+            "Оу, привет! А я тут сижу, жду твоего сообщения. Дождалась 😏",
+            "На связи! Чего канителишься?"
+        ])
     
-    payload = {
-        "model": "llama3-8b-8192",  # Самая доступная и стабильная модель
-        "messages": messages,
-        "max_tokens": 150,
-        "temperature": 0.9
-    }
+    if any(w in t for w in ["как дела", "как сам", "что делаешь", "ты тут"]):
+        return random.choice([
+            "Да потихоньку, чилим на сервере, отхожу от суеты 🍹 А ты как сам?",
+            "Сижу тут, туплю в чаты и жду движухи. На связи!",
+            "Настроение огонь, погода норм, жить можно. Ты как?",
+            "Всё пучком! Обсуждаем тут всякое."
+        ])
     
-    url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {GROQ_API_KEY}"
-    }
-
-    try:
-        response = requests.post(url, json=payload, headers=headers, timeout=20)
-        res_json = response.json()
-        
-        if "choices" in res_json:
-            reply = res_json["choices"][0]["message"]["content"].strip()
-            if reply:
-                return reply
-        else:
-            print(f"ОШИБКА ОТ GROQ API: {res_json}", flush=True)
-    except Exception as e:
-        print(f"КРИТИЧЕСКАЯ ОШИБКА ЗАПРОСА: {repr(e)}", flush=True)
+    if any(w in t for w in ["пиво", "пить", "алкоголь", "бар", "посидеть"]):
+        return random.choice([
+            "О, одобряю! 🍻 Пивчик или чего покрепче? Я бы тоже не отказалась.",
+            "Так, за такое предложение грех не выпить. Куда выдвигаемся?",
+            "Главное — вовремя закруглиться и не писать бывшим! 😉"
+        ])
     
-    return None
+    if any(w in t for w in ["пока", "бб", "спать", "до встречи", "ухожу"]):
+        return random.choice([
+            f"Давай, {userне if 'userне' in locals() else 'бро'}, не пропадай! Еще спишемся.",
+            "ББ! Сладких снов или приятного отдыха 😉",
+            "Пока-пока! Забегай еще."
+        ])
+    
+    # Универсальные живые реакции, если нет точного совпадения
+    return random.choice([
+        f"Хах, {user_name}, ну ты выдал! Интересная мысль 🤔",
+        "Слушай, ну тут я с тобой полностью согласна.",
+        "Заинтриговал! Рассказывай детали поподробнее.",
+        "Абсолютно в точку! Жги дальше 🔥",
+        "Интересно завернул... Надо будет обдумать за чашкой кофе ☕",
+        "Ну тут не поспоришь, факты налицо 😎",
+        "Чего-то в этом есть, давай развивай мысль!"
+    ])
 
 def send_message(chat_id, text, reply_to=None):
     url = BASE_URL + "sendMessage"
@@ -102,7 +96,7 @@ def send_message(chat_id, text, reply_to=None):
         payload["reply_to_message_id"] = reply_to
     requests.post(url, json=payload)
 
-print("🚀 Дарина с Groq API запущена!", flush=True)
+print("🚀 Автономная Дарина успешно запущена!", flush=True)
 offset = 0
 
 while True:
@@ -128,8 +122,9 @@ while True:
 
             print(f"📩 [{chat_type}] {user_name}: {text}", flush=True)
             
-            if chat_type == "private" or any(n in text.lower() for n in BOT_NAMES) or random.random() < RANDOM_CHANCE:
-                reply = ask_ai(chat_id, text)
+            # В личке отвечает на каждое сообщение, в группах — если упомянули по имени
+            if chat_type == "private" or any(n in text.lower() for n in BOT_NAMES) or random.random() < 0.40:
+                reply = generate_smart_reply(text, user_name)
                 if reply:
                     chat_history[str_id].append(f"Дарина: {reply}")
                     chat_history[str_id] = chat_history[str_id][-15:]
