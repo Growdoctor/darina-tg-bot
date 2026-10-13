@@ -2,7 +2,7 @@ import urllib.request, urllib.parse, json, random, time, os, ssl
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 
-BOT_TOKEN = "8875515804:AAGGkZONqnPO0blpB83z_H1elgEV4DuBywY"
+BOT_TOKEN = "8733403087:AAF0SjuCDji8IaX-JWoAM60xU59_RGzxe5Q"
 GEMINI_API_KEY = "AQ.Ab8RN6LI5HkMvB6kNxopRrQ2xfwmOMavjxMs3MlMcQv7CuK2_g"
 
 BOT_NAMES = ["дарина", "дарин", "даринка", "дариша", "даша", "бот", "малая"]
