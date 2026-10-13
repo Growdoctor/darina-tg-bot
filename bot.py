@@ -70,7 +70,8 @@ def ask_ai(chat_id, user_text):
         if response and response.text:
             return response.text.strip()
     except Exception as e:
-        print(f"Ошибка официального Gemini SDK: {e}")
+        # Выведем точную ошибку в логи Render, чтобы увидеть причину
+        print(f"ДЕТАЛИ ОШИБКИ GEMINI SDK: {repr(e)}")
     
     return "Блин, мысли разбежались, повтори-ка! 😅"
 
