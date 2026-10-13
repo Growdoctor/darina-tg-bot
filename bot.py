@@ -2,7 +2,7 @@ import urllib.request, urllib.parse, json, random, time, os, ssl
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 
-BOT_TOKEN = "8733403087:AAF0SjuCDji8IaX-JWoAM60xU59_RGzxe5Q"
+BOT_TOKEN = "8844271855:AAHw_Zf9dnlu8RM0R51HuqkcOKzXbgzLYJE"
 
 BOT_NAMES = ["дарина", "дарин", "даринка", "дариша", "даша", "бот", "малая"]
 RANDOM_CHANCE = 0.35
