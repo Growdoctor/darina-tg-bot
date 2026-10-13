@@ -110,3 +110,20 @@ while True:
     except Exception as e:
         print("Пауза связи:", e)
         time.sleep(2)
+# --- КАТЯ И ВЕБ-СЕРВЕР ДЛЯ RENDER FREE ---
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
+
+class SimpleHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Darina is alive!")
+
+def run_server():
+    server = HTTPServer(('0.0.0.0', 10000), SimpleHandler)
+    server.serve_forever()
+
+# Запускаем веб-сервер в фоновом потоке, чтобы он не мешал боту
+threading.Thread(target=run_server, daemon=True).start()
+# -------------------------------------------
