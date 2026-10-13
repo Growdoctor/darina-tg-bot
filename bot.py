@@ -1,7 +1,7 @@
-import json, random, time, os, ssl
-import urllib.request, urllib.parse
+import json, random, time, os
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
+import requests
 
 BOT_TOKEN = "8844271855:AAHw_Zf9dnlu8RM0R51HuqkcOKzXbgzLYJE"
 GROQ_API_KEY = "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"
@@ -15,9 +15,6 @@ SYSTEM_PROMPT = (
 )
 
 BASE_URL = f"https://api.telegram.org/bot{BOT_TOKEN}/"
-ctx = ssl.create_default_context()
-ctx.check_hostname = False
-ctx.verify_mode = ssl.CERT_NONE
 
 # --- МИНИ-СЕРВЕР ДЛЯ RENDER ---
 PORT = int(os.environ.get("PORT", 10000))
@@ -52,34 +49,28 @@ def save_memory():
         with open(MEMORY_FILE, "w", encoding="utf-8") as f:
             json.dump(chat_history, f, ensure_ascii=False, indent=2)
     except Exception as e:
-        print("Ошибка сохранения памяти:", e)
+        print("Ошибка сохранения памяти:", e, flush=True)
 
 def ask_ai(chat_id, user_text):
     str_id = str(chat_id)
     history_list = chat_history.get(str_id, [])
     
-    # Собираем сообщения для Groq API в нужном формате
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-    
-    # Добавляем историю переписки
     for item in history_list:
         if item.startswith("Дарина:"):
             messages.append({"role": "assistant", "content": item.replace("Дарина: ", "")})
         else:
-            # Формат "Имя: текст"
             messages.append({"role": "user", "content": item})
             
-    # Добавляем текущее сообщение
     messages.append({"role": "user", "content": user_text})
     
     payload = {
-        "model": "llama-3.3-70b-versatile",
+        "model": "llama-3.1-8b-instant",
         "messages": messages,
         "max_tokens": 150,
         "temperature": 0.9
     }
     
-    data_bytes = json.dumps(payload).encode("utf-8")
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
         "Content-Type": "application/json",
@@ -87,31 +78,35 @@ def ask_ai(chat_id, user_text):
     }
 
     try:
-        req = urllib.request.Request(url, data=data_bytes, headers=headers, method="POST")
-        resp = urllib.request.urlopen(req, context=ctx, timeout=20)
-        res_json = json.loads(resp.read().decode("utf-8"))
-        reply = res_json["choices"][0]["message"]["content"].strip()
-        if reply:
-            return reply
+        response = requests.post(url, json=payload, headers=headers, timeout=20)
+        res_json = response.json()
+        
+        if "choices" in res_json:
+            reply = res_json["choices"][0]["message"]["content"].strip()
+            if reply:
+                return reply
+        else:
+            # Выведем точную ошибку от Groq в консоль с принудительным выводом
+            print(f"ОШИБКА ОТ GROQ API: {res_json}", flush=True)
     except Exception as e:
-        print(f"Ошибка Groq API: {repr(e)}")
+        print(f"КРИТИЧЕСКАЯ ОШИБКА ЗАПРОСА: {repr(e)}", flush=True)
     
-    return "Слушай, у меня мысли разбежались, повтори-ка! 😅"
+    return None # Если ИИ не ответил, вернем None, чтобы бот не писал шаблон
 
 def send_message(chat_id, text, reply_to=None):
-    params = {"chat_id": chat_id, "text": text}
+    url = BASE_URL + "sendMessage"
+    payload = {"chat_id": chat_id, "text": text}
     if reply_to:
-        params["reply_to_message_id"] = reply_to
-    data = urllib.parse.urlencode(params).encode("utf-8")
-    urllib.request.urlopen(urllib.request.Request(BASE_URL + "sendMessage", data=data), context=ctx)
+        payload["reply_to_message_id"] = reply_to
+    requests.post(url, json=payload)
 
-print("🚀 Дарина с Groq API заведена и готова к работе!")
+print("🚀 Дарина с Groq API запущена!", flush=True)
 offset = 0
 
 while True:
     try:
-        req = urllib.request.urlopen(f"{BASE_URL}getUpdates?offset={offset}&timeout=10", context=ctx, timeout=15)
-        for update in json.loads(req.read().decode("utf-8")).get("result", []):
+        resp = requests.get(f"{BASE_URL}getUpdates", params={"offset": offset, "timeout": 10}, timeout=15)
+        for update in resp.json().get("result", []):
             offset = update["update_id"] + 1
             msg = update.get("message", {})
             chat_id = msg.get("chat", {}).get("id")
@@ -129,7 +124,7 @@ while True:
             chat_history[str_id] = chat_history[str_id][-15:]
             save_memory()
 
-            print(f"📩 [{chat_type}] {user_name}: {text}")
+            print(f"📩 [{chat_type}] {user_name}: {text}", flush=True)
             
             if chat_type == "private" or any(n in text.lower() for n in BOT_NAMES) or random.random() < RANDOM_CHANCE:
                 reply = ask_ai(chat_id, text)
@@ -139,5 +134,5 @@ while True:
                     save_memory()
                     send_message(chat_id, reply, msg.get("message_id") if chat_type != "private" else None)
     except Exception as e:
-        print("Пауза связи:", e)
+        print("Пауза связи с Telegram:", e, flush=True)
         time.sleep(2)
