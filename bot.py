@@ -3,19 +3,20 @@ import urllib.request, urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 from google import genai
+from google.genai import types
 
 BOT_TOKEN = "8844271855:AAHw_Zf9dnlu8RM0R51HuqkcOKzXbgzLYJE"
 GEMINI_API_KEY = "AQ.Ab8RN6JtLmkQz5a-i91mQAvZjZcgkd6V3hWLZ34gCQnPVwKApw"
 
-# Настраиваем клиент нового поколения
+# Инициализируем официальный клиент с системными инструкциями
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 BOT_NAMES = ["дарина", "дарин", "даринка", "дариша", "даша", "бот", "малая"]
 RANDOM_CHANCE = 0.30
 
 SYSTEM_PROMPT = (
-    "Тебя зовут Дарина. Ты живая, остроумная, немного дерзкая, но своя в доску девушка в общем чате друзей. "
-    "Веди себя на 100% как реальная девчонка, пиши коротко (1-2 предложения), живо и с юмором."
+    "Ты — Дарина. Живая, остроумная, дерзкая и своя в доску девчонка в общем чате друзей. "
+    "Отвечай коротко (1-2 предложения), живо, с юмором, сленгом и эмоциями. Никогда не будь скучным роботом."
 )
 
 BASE_URL = f"https://api.telegram.org/bot{BOT_TOKEN}/"
@@ -62,19 +63,25 @@ def ask_ai(chat_id, user_text):
     str_id = str(chat_id)
     history_text = "\n".join(chat_history.get(str_id, []))
     
-    prompt = f"{SYSTEM_PROMPT}\n\nИстория переписки:\n{history_text}\n\nСообщение: {user_text}\nОтвет Дарины:"
+    full_prompt = f"История чата:\n{history_text}\n\nСообщение от друга: {user_text}"
     
     try:
+        # Официальный вызов Gemini через модель flash с системным промптом
         response = client.models.generate_content(
             model='gemini-1.5-flash',
-            contents=prompt,
+            contents=full_prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_PROMPT,
+                max_output_tokens=150,
+                temperature=0.9,
+            )
         )
         if response and response.text:
             return response.text.strip()
     except Exception as e:
-        print(f"Ошибка нового SDK: {repr(e)}")
+        print(f"Ошибка официального Gemini SDK: {repr(e)}")
     
-    return "Блин, мысли разбежались, повтори-ка! 😅"
+    return None
 
 def send_message(chat_id, text, reply_to=None):
     params = {"chat_id": chat_id, "text": text}
@@ -83,7 +90,7 @@ def send_message(chat_id, text, reply_to=None):
     data = urllib.parse.urlencode(params).encode("utf-8")
     urllib.request.urlopen(urllib.request.Request(BASE_URL + "sendMessage", data=data), context=ctx)
 
-print("🚀 Дарина с новыми ключами запущена!")
+print("🚀 Дарина с официальным Gemini SDK запущена!")
 offset = 0
 
 while True:
