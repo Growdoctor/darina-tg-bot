@@ -68,7 +68,7 @@ def ask_ai(chat_id, user_text):
     messages.append({"role": "user", "content": user_text})
     
     payload = {
-        "model": "llama-3.3-70b-versatile",  # Актуальная и стабильная модель Groq
+        "model": "llama3-8b-8192",  # Самая доступная и стабильная модель
         "messages": messages,
         "max_tokens": 150,
         "temperature": 0.9
