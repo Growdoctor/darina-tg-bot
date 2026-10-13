@@ -3,16 +3,22 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 
 BOT_TOKEN = "8844271855:AAHw_Zf9dnlu8RM0R51HuqkcOKzXbgzLYJE"
+GEMINI_API_KEY = "AQ.Ab8RN6LG0Jv6zsGJSTslg7aMh4eoERWHgDAKzmuCfKlET1EjYA"
 
 BOT_NAMES = ["дарина", "дарин", "даринка", "дариша", "даша", "бот", "малая"]
-RANDOM_CHANCE = 0.35
+RANDOM_CHANCE = 0.30
+
+SYSTEM_PROMPT = (
+    "Тебя зовут Дарина. Ты живая, остроумная, немного дерзкая, но своя в доску девушка в общем чате друзей. "
+    "Веди себя на 100% как реальная девчонка, пиши коротко (1-2 предложения), живо и с юмором."
+)
 
 BASE_URL = f"https://api.telegram.org/bot{BOT_TOKEN}/"
 ctx = ssl.create_default_context()
 ctx.check_hostname = False
 ctx.verify_mode = ssl.CERT_NONE
 
-# --- МИНИ-СЕРВЕР ДЛЯ RENDER (ПОДДЕРЖАНИЕ СТАТУСА LIVE) ---
+# --- МИНИ-СЕРВЕР ДЛЯ RENDER ---
 PORT = int(os.environ.get("PORT", 10000))
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
@@ -28,14 +34,13 @@ def run_web_server():
     server.serve_forever()
 
 threading.Thread(target=run_web_server, daemon=True).start()
-# ---------------------------------------------------------
+# ------------------------------
 
-# Память чатов
 MEMORY_FILE = "memory.json"
 if os.path.exists(MEMORY_FILE):
     try:
         with open(MEMORY_FILE, "r", encoding="utf-8") as f:
-            chat_history = json.load(f)
+            chat_history = json.loads(f)
     except:
         chat_history = {}
 else:
@@ -48,54 +53,40 @@ def save_memory():
     except Exception as e:
         print("Ошибка сохранения памяти:", e)
 
-# Умный движок ответов Дарины в ее фирменном стиле
-def get_darina_response(text, user_name):
-    t = text.lower()
+def ask_ai(chat_id, user_text):
+    str_id = str(chat_id)
+    history_text = "\n".join(chat_history.get(str_id, []))
     
-    if any(w in t for w in ["привет", "ку", "здарова", "хай", "добрый день", "вечер"]):
-        return random.choice([
-            f"О, здарова, {user_name}! 😉 Какими судьбами в нашем богом забытом чате?",
-            f"Ку-ку, {user-name if 'user-name' in locals() else 'дружище'}! Чего новенького рассказываешь?",
-            "Оу, привет! А я тут сижу, думаю, какому бы красавчику написать. Написал ты 😏"
-        ])
+    # Формируем запрос в правильном формате для Google API с Bearer токеном
+    payload = {
+        "contents": [
+            {
+                "role": "user",
+                "parts": [
+                    {"text": f"{SYSTEM_PROMPT}\n\nИстория переписки:\n{history_text}\n\nСообщение от пользователя: {user_text}\nОтветь как Дарина:"}
+                ]
+            }
+        ]
+    }
     
-    if any(w in t for w in ["как дела", "как сам", "что делаешь", "как жизнь"]):
-        return random.choice([
-            "Да потихоньку, чилим в облаках Render, отхожу от вчерашнего 🍹 А ты как?",
-            "Сижу в интернете, туплю в монитор и жду пока мне норм тему для разговора подкинут. Ты как?",
-            "Всё пучком! Настроение огонь, погода норм, жить можно."
-        ])
+    data_bytes = json.dumps(payload).encode("utf-8")
     
-    if any(w in t for w in ["пиво", "пить", "алкоголь", "вино", "водка", "бар", "посидеть"]):
-        return random.choice([
-            "О, одобряю! 🍻 Пивчик или чего покрепче? Я бы сейчас не отказалась от холодного сидра.",
-            "Так, ну за такое предложение грех не выпить. Куда выдвигаемся?",
-            "Обожаю эту тему. Главное — вовремя закусить и не писать бывшим после третьей рюмок! 😉"
-        ])
-    
-    if any(w in t for w in ["музыка", "трек", "песня", "слушать", "скачать"]):
-        return random.choice([
-            "Ой, музыка — это святое. Без нормального рэпчика или качающего бита вообще никуда.",
-            "Скинь название трека, послушаю вместе с тобой! 🎧",
-            "Музыка под настроение — это наше всё. Что слушаешь обычно?"
-        ])
-    
-    if any(w in t for w in ["бот", "дарина", "ты кто"]):
-        return random.choice([
-            "Я? Твоя любимая виртуальная подруга Дарина, между прочим! 😎",
-            "Я тут главная по вайбу и хорошему настроению. Несогласные могут выйти из чата)",
-            "Твой персональный искуситель скуки. Чего хотел?"
-        ])
-    
-    # Универсальные дерзкие и живые ответы, если тема не распознана
-    return random.choice([
-        f"Хах, {user_name}, ну ты выдал! Даже не знаю, что на это ответить 🤔",
-        "Интересная мысль... Надо будет обдумать за чашечкой кофе (или пива 🍻).",
-        "Ну тут ты прав на все сто, спорить даже не буду.",
-        "Абсолютно согласна! Жги дальше, мне нравится ход твоих мыслей 😏",
-        "Слушай, ну звучит как план. А давай подробнее?",
-        "Честно? Заинтриговал. Рассказывай детали!"
-    ])
+    # Используем стабильную модель с OAuth / AQ авторизацией
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {GEMINI_API_KEY}"
+    }
+
+    try:
+        req = urllib.request.Request(url, data=data_bytes, headers=headers, method="POST")
+        resp = urllib.request.urlopen(req, context=ctx, timeout=25)
+        res_json = json.loads(resp.read().decode("utf-8"))
+        return res_json["candidates"][0]["content"]["parts"][0]["text"].strip()
+    except Exception as e:
+        print(f"Ошибка Gemini API: {e}")
+        # Если API не ответит, вернем живую заглушку вместо ошибки
+        return "Блин, что-то мысли разбежались, повтори еще разок! 😅"
 
 def send_message(chat_id, text, reply_to=None):
     params = {"chat_id": chat_id, "text": text}
@@ -104,7 +95,7 @@ def send_message(chat_id, text, reply_to=None):
     data = urllib.parse.urlencode(params).encode("utf-8")
     urllib.request.urlopen(urllib.request.Request(BASE_URL + "sendMessage", data=data), context=ctx)
 
-print("🚀 Дарина успешно запущена и ждет сообщения!")
+print("🚀 Дарина с Gemini запущена!")
 offset = 0
 
 while True:
@@ -125,17 +116,16 @@ while True:
                 chat_history[str_id] = []
             
             chat_history[str_id].append(f"{user_name}: {text}")
-            chat_history[str_id] = chat_history[str_id][-20:]
+            chat_history[str_id] = chat_history[str_id][-15:]
             save_memory()
 
             print(f"📩 [{chat_type}] {user_name}: {text}")
             
-            # Отвечаем в личке, если упомянули по имени, или с вероятностью рандома
             if chat_type == "private" or any(n in text.lower() for n in BOT_NAMES) or random.random() < RANDOM_CHANCE:
-                reply = get_darina_response(text, user_name)
+                reply = ask_ai(chat_id, text)
                 if reply:
                     chat_history[str_id].append(f"Дарина: {reply}")
-                    chat_history[str_id] = chat_history[str_id][-20:]
+                    chat_history[str_id] = chat_history[str_id][-15:]
                     save_memory()
                     send_message(chat_id, reply, msg.get("message_id") if chat_type != "private" else None)
     except Exception as e:
