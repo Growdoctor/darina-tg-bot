@@ -3,10 +3,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 import requests
 
-# Токен Телеграм-бота (вшит безопасно)
 BOT_TOKEN = "8844271855:AAHw_Zf9dnlu8RM0R51HuqkcOKzXbgzLYJE"
-
-# Ключ Groq считывается из защищенного окружения Render
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
 BOT_NAMES = ["дарина", "дарин", "даринка", "дариша", "даша", "бот", "малая"]
@@ -68,7 +65,7 @@ def ask_ai(chat_id, user_text):
     messages.append({"role": "user", "content": user_text})
     
     payload = {
-        "model": "llama-3.1-8b-instant",
+        "model": "llama3-70b-8192",  # Используем стабильную рабочую модель Groq
         "messages": messages,
         "max_tokens": 150,
         "temperature": 0.9
