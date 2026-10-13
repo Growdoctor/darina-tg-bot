@@ -3,8 +3,11 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 import requests
 
+# Токен Телеграм-бота (вшит безопасно)
 BOT_TOKEN = "8844271855:AAHw_Zf9dnlu8RM0R51HuqkcOKzXbgzLYJE"
-GROQ_API_KEY = "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"
+
+# Ключ Groq считывается из защищенного окружения Render
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
 BOT_NAMES = ["дарина", "дарин", "даринка", "дариша", "даша", "бот", "малая"]
 RANDOM_CHANCE = 0.30
@@ -86,12 +89,11 @@ def ask_ai(chat_id, user_text):
             if reply:
                 return reply
         else:
-            # Выведем точную ошибку от Groq в консоль с принудительным выводом
             print(f"ОШИБКА ОТ GROQ API: {res_json}", flush=True)
     except Exception as e:
         print(f"КРИТИЧЕСКАЯ ОШИБКА ЗАПРОСА: {repr(e)}", flush=True)
     
-    return None # Если ИИ не ответил, вернем None, чтобы бот не писал шаблон
+    return None
 
 def send_message(chat_id, text, reply_to=None):
     url = BASE_URL + "sendMessage"
