@@ -3,7 +3,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 
 BOT_TOKEN = "8733403087:AAF0SjuCDji8IaX-JWoAM60xU59_RGzxe5Q"
-GEMINI_API_KEY = "AQ.Ab8RN6LI5HkMvB6kNxopRrQ2xfwmOMavjxMs3MlMcQv7CuK2_g"
+GEMINI_API_KEY = "AQ.Ab8RN6I6D99IpbCoyc0-bsZZLzWg-NmM7DA7dhaNC6SSgyBsYg"
 
 BOT_NAMES = ["дарина", "дарин", "даринка", "дариша", "даша", "бот", "малая"]
 RANDOM_CHANCE = 0.30
@@ -19,7 +19,7 @@ ctx = ssl.create_default_context()
 ctx.check_hostname = False
 ctx.verify_mode = ssl.CERT_NONE
 
-# --- МИНИ-СЕРВЕР ДЛЯ RENDER (БЕРЕТ ПОРТ ИЗ ОКРУЖЕНИЯ) ---
+# --- МИНИ-СЕРВЕР ДЛЯ RENDER ---
 PORT = int(os.environ.get("PORT", 10000))
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
@@ -28,17 +28,15 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b"OK")
     def log_message(self, format, *args):
-        return # Отключаем лишний спам в логах от пинг-запросов Render
+        return
 
 def run_web_server():
     server = HTTPServer(('0.0.0.0', PORT), HealthCheckHandler)
     server.serve_forever()
 
-# Запускаем веб-сервер в фоновом потоке
 threading.Thread(target=run_web_server, daemon=True).start()
-# --------------------------------------------------------
+# ------------------------------
 
-# Загружаем память из файла, если он есть
 MEMORY_FILE = "memory.json"
 if os.path.exists(MEMORY_FILE):
     try:
@@ -56,20 +54,8 @@ def save_memory():
     except Exception as e:
         print("Ошибка сохранения памяти:", e)
 
-# Автоматический поиск моделей
-AVAILABLE_MODELS = []
-try:
-    models_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={GEMINI_API_KEY}"
-    req = urllib.request.urlopen(models_url, context=ctx, timeout=15)
-    models_data = json.loads(req.read().decode("utf-8"))
-    for m in models_data.get("models", []):
-        name = m.get("name", "").replace("models/", "")
-        methods = m.get("supportedGenerationMethods", [])
-        if "generateContent" in methods and "gemini" in name and "vision" not in name and "embedding" not in name:
-            AVAILABLE_MODELS.append(name)
-    AVAILABLE_MODELS.sort(key=lambda x: (0 if "flash" in x else 1, x), reverse=True)
-except:
-    AVAILABLE_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash"]
+# Используем актуальные модели с поддержкой Bearer/OAuth токенов
+AVAILABLE_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
 
 def ask_ai(chat_id):
     str_id = str(chat_id)
@@ -79,13 +65,19 @@ def ask_ai(chat_id):
     data_bytes = json.dumps(payload).encode("utf-8")
 
     for model in AVAILABLE_MODELS:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GEMINI_API_KEY}"
-        req = urllib.request.Request(url, data=data_bytes, headers={"Content-Type": "application/json"})
+        # Для ключей с префиксом AQ передаем авторизацию через заголовок Bearer
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {GEMINI_API_KEY}"
+        }
+        req = urllib.request.Request(url, data=data_bytes, headers=headers)
         try:
             resp = urllib.request.urlopen(req, context=ctx, timeout=25)
             res_json = json.loads(resp.read().decode("utf-8"))
             return res_json["candidates"][0]["content"]["parts"][0]["text"].strip()
-        except:
+        except Exception as e:
+            print(f"Ошибка с моделью {model}: {e}")
             continue
     return "Секунду, связь подвисла, напиши еще раз! ❤️"
 
@@ -96,7 +88,7 @@ def send_message(chat_id, text, reply_to=None):
     data = urllib.parse.urlencode(params).encode("utf-8")
     urllib.request.urlopen(urllib.request.Request(BASE_URL + "sendMessage", data=data), context=ctx)
 
-print("🚀 Дарина запущена с веб-сервером на порту", PORT)
+print("🚀 Дарина запущена с поддержкой нового типа ключа!")
 offset = 0
 
 while True:
