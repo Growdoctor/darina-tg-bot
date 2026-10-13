@@ -2,20 +2,15 @@ import json, random, time, os, ssl
 import urllib.request, urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
-from google import genai
-from google.genai import types
 
 BOT_TOKEN = "8844271855:AAHw_Zf9dnlu8RM0R51HuqkcOKzXbgzLYJE"
-GEMINI_API_KEY = "AQ.Ab8RN6JtLmkQz5a-i91mQAvZjZcgkd6V3hWLZ34gCQnPVwKApw"
-
-# Инициализируем официальный клиент с системными инструкциями
-client = genai.Client(api_key=GEMINI_API_KEY)
+GROQ_API_KEY = "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"
 
 BOT_NAMES = ["дарина", "дарин", "даринка", "дариша", "даша", "бот", "малая"]
 RANDOM_CHANCE = 0.30
 
 SYSTEM_PROMPT = (
-    "Ты — Дарина. Живая, остроумная, дерзкая и своя в доску девчонка в общем чате друзей. "
+    "Ты — Дарина. Живая, остроумная, немного дерзкая, но своя в доску девушка в общем чате друзей. "
     "Отвечай коротко (1-2 предложения), живо, с юмором, сленгом и эмоциями. Никогда не будь скучным роботом."
 )
 
@@ -61,27 +56,47 @@ def save_memory():
 
 def ask_ai(chat_id, user_text):
     str_id = str(chat_id)
-    history_text = "\n".join(chat_history.get(str_id, []))
+    history_list = chat_history.get(str_id, [])
     
-    full_prompt = f"История чата:\n{history_text}\n\nСообщение от друга: {user_text}"
+    # Собираем сообщения для Groq API в нужном формате
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     
+    # Добавляем историю переписки
+    for item in history_list:
+        if item.startswith("Дарина:"):
+            messages.append({"role": "assistant", "content": item.replace("Дарина: ", "")})
+        else:
+            # Формат "Имя: текст"
+            messages.append({"role": "user", "content": item})
+            
+    # Добавляем текущее сообщение
+    messages.append({"role": "user", "content": user_text})
+    
+    payload = {
+        "model": "llama-3.3-70b-versatile",
+        "messages": messages,
+        "max_tokens": 150,
+        "temperature": 0.9
+    }
+    
+    data_bytes = json.dumps(payload).encode("utf-8")
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {GROQ_API_KEY}"
+    }
+
     try:
-        # Официальный вызов Gemini через модель flash с системным промптом
-        response = client.models.generate_content(
-            model='gemini-1.5-flash',
-            contents=full_prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_PROMPT,
-                max_output_tokens=150,
-                temperature=0.9,
-            )
-        )
-        if response and response.text:
-            return response.text.strip()
+        req = urllib.request.Request(url, data=data_bytes, headers=headers, method="POST")
+        resp = urllib.request.urlopen(req, context=ctx, timeout=20)
+        res_json = json.loads(resp.read().decode("utf-8"))
+        reply = res_json["choices"][0]["message"]["content"].strip()
+        if reply:
+            return reply
     except Exception as e:
-        print(f"Ошибка официального Gemini SDK: {repr(e)}")
+        print(f"Ошибка Groq API: {repr(e)}")
     
-    return None
+    return "Слушай, у меня мысли разбежались, повтори-ка! 😅"
 
 def send_message(chat_id, text, reply_to=None):
     params = {"chat_id": chat_id, "text": text}
@@ -90,7 +105,7 @@ def send_message(chat_id, text, reply_to=None):
     data = urllib.parse.urlencode(params).encode("utf-8")
     urllib.request.urlopen(urllib.request.Request(BASE_URL + "sendMessage", data=data), context=ctx)
 
-print("🚀 Дарина с официальным Gemini SDK запущена!")
+print("🚀 Дарина с Groq API заведена и готова к работе!")
 offset = 0
 
 while True:
