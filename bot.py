@@ -3,14 +3,13 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 
 BOT_TOKEN = "8844271855:AAHw_Zf9dnlu8RM0R51HuqkcOKzXbgzLYJE"
-GEMINI_API_KEY = "AQ.Ab8RN6LG0Jv6zsGJSTslg7aMh4eoERWHgDAKzmuCfKlET1EjYA"
 
 BOT_NAMES = ["дарина", "дарин", "даринка", "дариша", "даша", "бот", "малая"]
-RANDOM_CHANCE = 0.30
+RANDOM_CHANCE = 0.35
 
 SYSTEM_PROMPT = (
-    "Тебя зовут Дарина. Ты живая, остроумная, немного дерзкая, но своя в доску девушка в общем чате друзей. "
-    "Веди себя на 100% как реальная девчонка, пиши коротко (1-2 предложения), живо и с юмором."
+    "Ты — Дарина. Живая, остроумная, дерзкая и своя в доску девчонка в общем чате друзей. "
+    "Отвечай коротко (1-2 предложения), живо, с юмором, сленгом и эмоциями. Никогда не будь скучным роботом."
 )
 
 BASE_URL = f"https://api.telegram.org/bot{BOT_TOKEN}/"
@@ -57,39 +56,22 @@ def ask_ai(chat_id, user_text):
     str_id = str(chat_id)
     history_text = "\n".join(chat_history.get(str_id, []))
     
-    payload = {
-        "contents": [
-            {
-                "role": "user",
-                "parts": [
-                    {"text": f"{SYSTEM_PROMPT}\n\nИстория:\n{history_text}\n\nСообщение: {user_text}\nОтвет Дарины:"}
-                ]
-            }
-        ]
-    }
+    # Формируем полный запрос с контекстом и характером Дарины
+    full_prompt = f"{SYSTEM_PROMPT}\n\nИстория чата:\n{history_text}\n\nСообщение от друга: {user_text}\nДарина:"
     
-    data_bytes = json.dumps(payload).encode("utf-8")
+    # Используем стабильный генеративный эндпоинт, который создает уникальный текст под каждый запрос
+    url = "https://text.pollinations.ai/" + urllib.parse.quote(full_prompt)
     
-    # Используем проверенный эндпоинт для проектных ключей
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {GEMINI_API_KEY}"
-    }
-
     try:
-        req = urllib.request.Request(url, data=data_bytes, headers=headers, method="POST")
-        resp = urllib.request.urlopen(req, context=ctx, timeout=25)
-        res_json = json.loads(resp.read().decode("utf-8"))
-        return res_json["candidates"][0]["content"]["parts"][0]["text"].strip()
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        resp = urllib.request.urlopen(req, context=ctx, timeout=20)
+        reply = resp.read().decode("utf-8").strip()
+        if reply:
+            return reply
     except Exception as e:
-        print(f"Ошибка запроса: {e}")
-        # Если API отклоняет токен, даем живой и остроумный ответ, чтобы бот не молчал
-        return random.choice([
-            "Слушай, у меня тут вайб-чек не проходит, но я всё равно с тобой! 😉",
-            "Хах, ну ты выдал! Сеть подлагивает, но мы на связи.",
-            "Интересно... Расскажи поподробнее, я внимательно слушаю!"
-        ])
+        print(f"Ошибка генерации: {e}")
+    
+    return "Слушай, у меня мысли разбежались, повтори-ка! 😅"
 
 def send_message(chat_id, text, reply_to=None):
     params = {"chat_id": chat_id, "text": text}
@@ -98,7 +80,7 @@ def send_message(chat_id, text, reply_to=None):
     data = urllib.parse.urlencode(params).encode("utf-8")
     urllib.request.urlopen(urllib.request.Request(BASE_URL + "sendMessage", data=data), context=ctx)
 
-print("🚀 Дарина запущена!")
+print("🚀 Дарина с генеративным ИИ запущена!")
 offset = 0
 
 while True:
