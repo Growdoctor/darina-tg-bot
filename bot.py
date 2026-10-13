@@ -7,7 +7,7 @@ from google import genai
 BOT_TOKEN = "8844271855:AAHw_Zf9dnlu8RM0R51HuqkcOKzXbgzLYJE"
 GEMINI_API_KEY = "AQ.Ab8RN6JtLmkQz5a-i91mQAvZjZcgkd6V3hWLZ34gCQnPVwKApw"
 
-# Настраиваем новый клиент Google GenAI
+# Настраиваем клиент нового поколения
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 BOT_NAMES = ["дарина", "дарин", "даринка", "дариша", "даша", "бот", "малая"]
@@ -65,7 +65,6 @@ def ask_ai(chat_id, user_text):
     prompt = f"{SYSTEM_PROMPT}\n\nИстория переписки:\n{history_text}\n\nСообщение: {user_text}\nОтвет Дарины:"
     
     try:
-        # Используем актуальный метод нового SDK
         response = client.models.generate_content(
             model='gemini-1.5-flash',
             contents=prompt,
@@ -73,7 +72,7 @@ def ask_ai(chat_id, user_text):
         if response and response.text:
             return response.text.strip()
     except Exception as e:
-        print(f"Ошибка нового Google GenAI SDK: {repr(e)}")
+        print(f"Ошибка нового SDK: {repr(e)}")
     
     return "Блин, мысли разбежались, повтори-ка! 😅"
 
@@ -84,7 +83,7 @@ def send_message(chat_id, text, reply_to=None):
     data = urllib.parse.urlencode(params).encode("utf-8")
     urllib.request.urlopen(urllib.request.Request(BASE_URL + "sendMessage", data=data), context=ctx)
 
-print("🚀 Дарина с новым Google GenAI SDK запущена!")
+print("🚀 Дарина с новыми ключами запущена!")
 offset = 0
 
 while True:
