@@ -19,21 +19,24 @@ ctx = ssl.create_default_context()
 ctx.check_hostname = False
 ctx.verify_mode = ssl.CERT_NONE
 
-# --- ВЕБ-СЕРВЕР ДЛЯ RENDER FREE (ЗАПУСКАЕМ ПЕРВЫМ) ---
-class SimpleHandler(BaseHTTPRequestHandler):
+# --- МИНИ-СЕРВЕР ДЛЯ RENDER (БЕРЕТ ПОРТ ИЗ ОКРУЖЕНИЯ) ---
+PORT = int(os.environ.get("PORT", 10000))
+
+class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"Darina is alive and working!")
+        self.wfile.write(b"OK")
+    def log_message(self, format, *args):
+        return # Отключаем лишний спам в логах от пинг-запросов Render
 
-def run_server():
-    port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(('0.0.0.0', port), SimpleHandler)
+def run_web_server():
+    server = HTTPServer(('0.0.0.0', PORT), HealthCheckHandler)
     server.serve_forever()
 
-# Запускаем веб-сервер в фоновом потоке, чтобы Render сразу обнаружил порт
-threading.Thread(target=run_server, daemon=True).start()
-# ----------------------------------------------------
+# Запускаем веб-сервер в фоновом потоке
+threading.Thread(target=run_web_server, daemon=True).start()
+# --------------------------------------------------------
 
 # Загружаем память из файла, если он есть
 MEMORY_FILE = "memory.json"
@@ -93,7 +96,7 @@ def send_message(chat_id, text, reply_to=None):
     data = urllib.parse.urlencode(params).encode("utf-8")
     urllib.request.urlopen(urllib.request.Request(BASE_URL + "sendMessage", data=data), context=ctx)
 
-print("🚀 Дарина с долговременной памятью и веб-сервером запущена!")
+print("🚀 Дарина запущена с веб-сервером на порту", PORT)
 offset = 0
 
 while True:
@@ -114,7 +117,7 @@ while True:
                 chat_history[str_id] = []
             
             chat_history[str_id].append(f"{user_name}: {text}")
-            chat_history[str_id] = chat_history[str_id][-20:] # помнит последние 20 сообщений
+            chat_history[str_id] = chat_history[str_id][-20:]
             save_memory()
 
             print(f"📩 [{chat_type}] {user_name}: {text}")
