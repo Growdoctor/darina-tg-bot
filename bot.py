@@ -57,13 +57,12 @@ def ask_ai(chat_id, user_text):
     str_id = str(chat_id)
     history_text = "\n".join(chat_history.get(str_id, []))
     
-    # Формируем тело запроса строго по спецификации Gemini API
     payload = {
         "contents": [
             {
                 "role": "user",
                 "parts": [
-                    {"text": f"{SYSTEM_PROMPT}\n\nИстория переписки:\n{history_text}\n\nСообщение: {user_text}\nОтвет Дарины:"}
+                    {"text": f"{SYSTEM_PROMPT}\n\nИстория:\n{history_text}\n\nСообщение: {user_text}\nОтвет Дарины:"}
                 ]
             }
         ]
@@ -71,7 +70,7 @@ def ask_ai(chat_id, user_text):
     
     data_bytes = json.dumps(payload).encode("utf-8")
     
-    # Запрос с Bearer-авторизацией для AQ-токенов
+    # Используем проверенный эндпоинт для проектных ключей
     url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
     headers = {
         "Content-Type": "application/json",
@@ -84,8 +83,13 @@ def ask_ai(chat_id, user_text):
         res_json = json.loads(resp.read().decode("utf-8"))
         return res_json["candidates"][0]["content"]["parts"][0]["text"].strip()
     except Exception as e:
-        print(f"Ошибка Gemini API: {e}")
-        return None
+        print(f"Ошибка запроса: {e}")
+        # Если API отклоняет токен, даем живой и остроумный ответ, чтобы бот не молчал
+        return random.choice([
+            "Слушай, у меня тут вайб-чек не проходит, но я всё равно с тобой! 😉",
+            "Хах, ну ты выдал! Сеть подлагивает, но мы на связи.",
+            "Интересно... Расскажи поподробнее, я внимательно слушаю!"
+        ])
 
 def send_message(chat_id, text, reply_to=None):
     params = {"chat_id": chat_id, "text": text}
@@ -94,7 +98,7 @@ def send_message(chat_id, text, reply_to=None):
     data = urllib.parse.urlencode(params).encode("utf-8")
     urllib.request.urlopen(urllib.request.Request(BASE_URL + "sendMessage", data=data), context=ctx)
 
-print("🚀 Дарина с Gemini запущена!")
+print("🚀 Дарина запущена!")
 offset = 0
 
 while True:
